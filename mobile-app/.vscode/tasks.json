@@ -1,0 +1,24 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "expo-start-clear",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"start",
+				"-c"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "expo-start-clear",
+			"type": "shell",
+			"command": "npx expo start -c",
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}
