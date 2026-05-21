@@ -1,0 +1,946 @@
+openapi: 3.0.3
+info:
+  title: HealthPass API
+  description: API documentation for HealthPass application - a healthcare management platform
+  version: 1.0.0
+  contact:
+    name: HealthPass Support
+servers:
+  - url: '{baseUrl}/api'
+    description: API Server
+    variables:
+      baseUrl:
+        default: http://localhost:5000
+        description: Base URL
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Error message
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: User authentication (OTP-based)
+  - name: Account
+    description: User account management
+  - name: Plans
+    description: Subscription plans
+  - name: Payments
+    description: Payments and subscriptions
+  - name: Dashboard
+    description: User dashboard data
+  - name: Appointments
+    description: Hospital appointments
+  - name: Chat
+    description: Chat with hospitals
+  - name: Benefits
+    description: User benefits
+  - name: Bills
+    description: Medical bills management
+  - name: Wallet
+    description: Wallet and credits
+  - name: Insurance
+    description: Insurance management
+  - name: Notifications
+    description: User notifications
+  - name: Admin
+    description: Admin-only endpoints
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+  /auth/send-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Send OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mobile
+              properties:
+                mobile:
+                  type: string
+                  description: Use 9199999999 for static OTP
+                  example: '9199999999'
+      responses:
+        '200':
+          description: OTP sent
+  /auth/verify-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Verify OTP and get tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mobile
+                - otp
+              properties:
+                mobile:
+                  type: string
+                  example: '9199999999'
+                otp:
+                  type: string
+                  description: 'Static: 123456'
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout
+      responses:
+        '200':
+          description: Logged out
+  /account/setup:
+    post:
+      tags:
+        - Account
+      summary: Setup account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - language
+                - city
+                - consentAccepted
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                language:
+                  type: string
+                city:
+                  type: string
+                consentAccepted:
+                  type: boolean
+                referralCode:
+                  type: string
+      responses:
+        '200':
+          description: Account setup
+  /account/profile:
+    get:
+      tags:
+        - Account
+      summary: Get profile
+      responses:
+        '200':
+          description: Profile retrieved
+    patch:
+      tags:
+        - Account
+      summary: Update profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                language:
+                  type: string
+                city:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+  /account/family:
+    get:
+      tags:
+        - Account
+      summary: Get family members
+      responses:
+        '200':
+          description: Family members retrieved
+    post:
+      tags:
+        - Account
+      summary: Add family member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - age
+                - gender
+                - relation
+              properties:
+                name:
+                  type: string
+                  description: Family member name
+                age:
+                  type: integer
+                  description: Age of family member
+                gender:
+                  type: string
+                  enum:
+                    - MALE
+                    - FEMALE
+                    - OTHER
+                relation:
+                  type: string
+                  description: Relationship (SPOUSE, CHILD, PARENT, SIBLING, OTHER)
+                mobile:
+                  type: string
+                  description: Mobile number (optional)
+      responses:
+        '201':
+          description: Family member added
+  /account/family/{memberId}:
+    delete:
+      tags:
+        - Account
+      summary: Remove family member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Family member removed
+  /plans:
+    get:
+      tags:
+        - Plans
+      summary: Get all plans
+      responses:
+        '200':
+          description: Plans retrieved
+  /plans/{id}:
+    get:
+      tags:
+        - Plans
+      summary: Get plan by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plan retrieved
+  /subscriptions:
+    post:
+      tags:
+        - Payments
+      summary: Create subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - planId
+                - paymentMethodId
+              properties:
+                planId:
+                  type: string
+                paymentMethodId:
+                  type: string
+      responses:
+        '200':
+          description: Subscription created
+  /subscriptions/active:
+    get:
+      tags:
+        - Payments
+      summary: Get active subscription
+      responses:
+        '200':
+          description: Active subscription
+  /payments/confirm:
+    post:
+      tags:
+        - Payments
+      summary: Confirm payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentIntentId
+              properties:
+                paymentIntentId:
+                  type: string
+      responses:
+        '200':
+          description: Payment confirmed
+  /payments/history:
+    get:
+      tags:
+        - Payments
+      summary: Get payment history
+      responses:
+        '200':
+          description: Payment history
+  /dashboard:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard
+      responses:
+        '200':
+          description: Dashboard data
+  /hospitals:
+    get:
+      tags:
+        - Appointments
+      summary: Search hospitals
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: specialty
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Hospitals retrieved
+  /hospitals/{id}:
+    get:
+      tags:
+        - Appointments
+      summary: Get hospital
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hospital details
+  /hospitals/{hospitalId}/slots:
+    get:
+      tags:
+        - Appointments
+      summary: Get slots
+      parameters:
+        - name: hospitalId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: doctorId
+          in: query
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Slots retrieved
+  /appointments:
+    post:
+      tags:
+        - Appointments
+      summary: Book appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hospitalId
+                - slotId
+              properties:
+                hospitalId:
+                  type: string
+                  example: '000000000000000000000001'
+                slotId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: Appointment booked
+    get:
+      tags:
+        - Appointments
+      summary: List appointments
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - COMPLETED
+              - CANCELLED
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Appointments retrieved
+  /appointments/{id}:
+    get:
+      tags:
+        - Appointments
+      summary: Get appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Appointment details
+  /appointments/{id}/cancel:
+    patch:
+      tags:
+        - Appointments
+      summary: Cancel appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Appointment cancelled
+  /appointments/{id}/reschedule:
+    patch:
+      tags:
+        - Appointments
+      summary: Reschedule appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - slotId
+              properties:
+                slotId:
+                  type: string
+      responses:
+        '200':
+          description: Appointment rescheduled
+  /chats:
+    get:
+      tags:
+        - Chat
+      summary: Get chat threads
+      responses:
+        '200':
+          description: Chat threads retrieved
+    post:
+      tags:
+        - Chat
+      summary: Start chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hospitalId
+              properties:
+                hospitalId:
+                  type: string
+      responses:
+        '201':
+          description: Chat thread created
+  /chats/{threadId}/messages:
+    get:
+      tags:
+        - Chat
+      summary: Get messages
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Messages retrieved
+    post:
+      tags:
+        - Chat
+      summary: Send message
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Message sent
+  /benefits:
+    get:
+      tags:
+        - Benefits
+      summary: Get benefits
+      responses:
+        '200':
+          description: Benefits retrieved
+  /bills:
+    get:
+      tags:
+        - Bills
+      summary: Get bills
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - APPROVED
+              - REJECTED
+              - NEED_INFO
+      responses:
+        '200':
+          description: Bills retrieved
+    post:
+      tags:
+        - Bills
+      summary: Upload bill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                hospitalId:
+                  type: string
+                serviceDate:
+                  type: string
+                  format: date
+                receiptUrl:
+                  type: string
+                  format: uri
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Bill uploaded
+  /bills/{id}:
+    get:
+      tags:
+        - Bills
+      summary: Get bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bill details
+  /wallet:
+    get:
+      tags:
+        - Wallet
+      summary: Get wallet
+      responses:
+        '200':
+          description: Wallet balance
+  /wallet/redeem:
+    post:
+      tags:
+        - Wallet
+      summary: Redeem credits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+              properties:
+                amount:
+                  type: number
+                  minimum: 0.01
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Credits redeemed
+  /insurance:
+    get:
+      tags:
+        - Insurance
+      summary: Get insurances
+      responses:
+        '200':
+          description: Insurances retrieved
+    post:
+      tags:
+        - Insurance
+      summary: Link insurance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - company
+                - policyNumber
+                - insuredName
+                - expiryDate
+              properties:
+                company:
+                  type: string
+                policyNumber:
+                  type: string
+                insuredName:
+                  type: string
+                expiryDate:
+                  type: string
+                  format: date
+                premiumDue:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Insurance linked
+  /insurance/{id}:
+    delete:
+      tags:
+        - Insurance
+      summary: Unlink insurance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Insurance unlinked
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notifications
+      responses:
+        '200':
+          description: Notifications retrieved
+  /notifications/{id}/read:
+    patch:
+      tags:
+        - Notifications
+      summary: Mark as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+  /notifications/read-all:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all as read
+      responses:
+        '200':
+          description: All marked as read
+  /admin/bills:
+    get:
+      tags:
+        - Admin
+      summary: Get pending bills
+      responses:
+        '200':
+          description: Pending bills
+  /admin/bills/{id}/approve:
+    patch:
+      tags:
+        - Admin
+      summary: Approve bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - creditAmount
+              properties:
+                creditAmount:
+                  type: number
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Bill approved
+  /admin/bills/{id}/reject:
+    patch:
+      tags:
+        - Admin
+      summary: Reject bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Bill rejected
+  /admin/bills/{id}/request-info:
+    patch:
+      tags:
+        - Admin
+      summary: Request more info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - note
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Info requested
+  /admin/appointments/{id}/adjust-visits:
+    patch:
+      tags:
+        - Admin
+      summary: Adjust visits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - adjustment
+                - reason
+              properties:
+                adjustment:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Visits adjusted
+  /admin/audit-logs:
+    get:
+      tags:
+        - Admin
+      summary: Get audit logs
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Audit logs

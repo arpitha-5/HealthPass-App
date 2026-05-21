@@ -1,0 +1,488 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+//  ENUMS 
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PlanName {
+  BASIC
+  ADVANCED
+  ENHANCED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NETBANKING
+  WALLET
+}
+
+enum AppointmentStatus {
+  BOOKED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum FreeVisitPolicy {
+  AT_BOOKING
+  AT_COMPLETION
+}
+
+enum BillStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  AUTO_APPROVED
+  ADMIN_APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+  CREDITED
+  REVERSED
+}
+
+enum BillType {
+  MEDICAL_CONSULTATION
+  PHARMACY
+  DIAGNOSTIC
+  HOSPITAL
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  EXPIRY
+  REVERSAL
+}
+
+enum InsuranceStatus {
+  ACTIVE
+  EXPIRED
+  PENDING_VERIFICATION
+}
+
+enum ChatSenderType {
+  USER
+  HOSPITAL
+  SYSTEM
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum NotificationType {
+  OTP
+  PLAN_ACTIVATION
+  APPOINTMENT_BOOKED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_REMINDER
+  BILL_UPLOADED
+  BILL_APPROVED
+  BILL_REJECTED
+  WALLET_CREDITED
+  WALLET_EXPIRING
+  INSURANCE_REMINDER
+  REFERRAL_REWARD
+  GENERAL
+}
+
+//  USER 
+
+model User {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  mobile            String           @unique
+  name              String?
+  email             String?
+  language          String?
+  city              String?
+  consentAccepted   Boolean          @default(false)
+  consentAt         DateTime?
+  referralCode      String?
+  role              Role             @default(USER)
+  isProfileComplete Boolean          @default(false)
+  refreshToken      String?
+  isBlocked         Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  familyMembers     FamilyMember[]
+  subscriptions     Subscription[]
+  payments          Payment[]
+  appointments      Appointment[]
+  chatThreads       ChatThread[]
+  bills             Bill[]
+  wallet            Wallet?
+  insurances        Insurance[]
+  notifications     Notification[]
+}
+
+model OtpAttempt {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  mobile      String
+  code        String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  isBlocked   Boolean  @default(false)
+  blockedUntil DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([mobile])
+}
+
+//  FAMILY 
+
+model FamilyMember {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  age       Int
+  gender    Gender
+  relation  String
+  mobile    String?
+  createdAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+}
+
+//  PLANS 
+
+model Plan {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         PlanName @unique
+  displayName  String
+  description  String
+  features     Json
+  priceMonthly Float
+  priceQuarterly Float
+  priceAnnually Float
+  maxAdults    Int
+  maxChildren  Int
+  freeVisits   Int
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+  creditRules   CreditRule[]
+}
+
+model Subscription {
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String             @db.ObjectId
+  planId       String             @db.ObjectId
+  billingCycle BillingCycle
+  status       SubscriptionStatus @default(PENDING)
+  startDate    DateTime?
+  endDate      DateTime?
+  freeVisitsRemaining Int
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id])
+  plan         Plan               @relation(fields: [planId], references: [id])
+  payments     Payment[]
+}
+
+//  PAYMENTS 
+
+model Payment {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String        @db.ObjectId
+  subscriptionId String        @db.ObjectId
+  amount         Float
+  walletUsed     Float         @default(0)
+  status         PaymentStatus @default(PENDING)
+  method         PaymentMethod?
+  txnId          String?       @unique
+  invoiceUrl     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+//  HOSPITALS & DOCTORS 
+
+model Hospital {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  city          String
+  address       String
+  specialties   String[]
+  photos        String[]
+  supportNumber String?
+  waitTime      Int?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  doctors      Doctor[]
+  timeSlots    TimeSlot[]
+  appointments Appointment[]
+  chatThreads  ChatThread[]
+}
+
+model Doctor {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  hospitalId String   @db.ObjectId
+  name       String
+  specialty  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  timeSlots    TimeSlot[]
+  appointments Appointment[]
+}
+
+model TimeSlot {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  hospitalId  String   @db.ObjectId
+  doctorId    String   @db.ObjectId
+  date        DateTime
+  startTime   String
+  endTime     String
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  appointments Appointment[]
+}
+
+//  APPOINTMENTS 
+
+model Appointment {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  familyMemberId    String?           @db.ObjectId
+  hospitalId        String            @db.ObjectId
+  doctorId          String            @db.ObjectId
+  slotId            String            @db.ObjectId
+  status            AppointmentStatus @default(BOOKED)
+  freeVisitDeducted Boolean           @default(false)
+  freeVisitPolicy   FreeVisitPolicy   @default(AT_BOOKING)
+  cancelledAt       DateTime?
+  completedAt       DateTime?
+  cancellationReason String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  familyMember FamilyMember? @relation(fields: [familyMemberId], references: [id])
+  hospital     Hospital      @relation(fields: [hospitalId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  slot         TimeSlot      @relation(fields: [slotId], references: [id])
+}
+
+//  CHAT 
+
+model ChatThread {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  hospitalId String   @db.ObjectId
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id])
+  hospital Hospital      @relation(fields: [hospitalId], references: [id])
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id         String         @id @default(auto()) @map("_id") @db.ObjectId
+  threadId   String         @db.ObjectId
+  senderType ChatSenderType
+  senderId   String
+  content    String
+  isRead     Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id])
+}
+
+//  BILLS & WALLET 
+
+model Bill {
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String     @db.ObjectId
+  billType        BillType
+  fileUrl         String
+  providerName    String?
+  billAmount      Float?
+  billDate        DateTime?
+  patientName     String?
+  status          BillStatus @default(SUBMITTED)
+  creditAmount    Float?
+  rejectionReason String?
+  adminNote       String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  submittedAt     DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Wallet {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        String                @id @default(auto()) @map("_id") @db.ObjectId
+  walletId  String                @db.ObjectId
+  amount    Float
+  type      WalletTransactionType
+  reason    String
+  expiresAt DateTime?
+  createdAt DateTime              @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+}
+
+//  INSURANCE 
+
+model Insurance {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String          @db.ObjectId
+  company      String
+  policyNumber String
+  insuredName  String
+  expiryDate   DateTime
+  premiumDue   DateTime?
+  status       InsuranceStatus @default(PENDING_VERIFICATION)
+  claimStatus  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+//  NOTIFICATIONS 
+
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String           @db.ObjectId
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+//  CREDIT RULES 
+
+model CreditRule {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  planId          String   @db.ObjectId
+  billType        BillType
+  percentage      Float
+  maxPerBill      Float?
+  maxMonthly      Float?
+  maxAnnual       Float?
+  minBillAmount   Float?
+  creditExpiryDays Int?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id])
+}
+
+//  AUDIT LOG 
+
+model AuditLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  entityType  String
+  entityId    String
+  action      String
+  performedBy String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+//  PHARMACY 
+
+model Medicine {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  brand       String
+  price       Float
+  type        String   // e.g., "Tablet", "Syrup"
+  dosage      String   // e.g., "500mg"
+  strip       String   // e.g., "15 Tablets"
+  description String?
+  category    String   // e.g., "Cold", "Stomach"
+  image       String?  // icon name or image URL
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+//  DIAGNOSTICS 
+
+model DiagnosticPackage {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  price         Float
+  originalPrice Float
+  testCount     Int
+  preparation   String   // e.g., "Fasting 10-12 hrs"
+  reportTime    String   // e.g., "24 hrs"
+  isHomeSample  Boolean  @default(true)
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
