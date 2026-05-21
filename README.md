@@ -1,4 +1,4 @@
-# 🏥 HealthPass Application Suite
+# 🏥 HealthPass Application
 
 HealthPass is a comprehensive digital healthcare management platform designed to streamline medical benefits, appointments, claims, subscriptions, and doctor-patient interactions. This a fully-fledged mobile application built with React Native (Expo) and backend implementations (a modern TypeScript/Prisma backend and a legacy JavaScript/Mongoose backend).
 
