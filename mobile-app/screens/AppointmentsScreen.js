@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
@@ -105,7 +106,29 @@ const AppointmentsScreen = ({ navigation }) => {
               <TouchableOpacity style={styles.rescheduleBtn}>
                 <Text style={styles.rescheduleText}>Reschedule</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn}>
+              <TouchableOpacity 
+                style={styles.cancelBtn}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Appointment',
+                    `Are you sure you want to cancel your appointment with ${item.doctor?.name}?`,
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { 
+                        text: 'Yes, Cancel', 
+                        style: 'destructive',
+                        onPress: () => {
+                          Alert.alert(
+                            'Appointment Cancelled',
+                            'Your visit has been restored. You can book again anytime.',
+                            [{ text: 'OK' }]
+                          );
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
             </>

@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as SecureStore from 'expo-secure-store';
-import apiClient from '../services/apiService';
+import apiClient, { authAPI } from '../services/apiService';
 
 
 
@@ -122,15 +122,25 @@ const SignupScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const fullPhone = `+91${phoneNumber}`;
+      const response = await authAPI.sendOtp(phoneNumber, true);
 
-      // Send OTP via SMS provider
       setVerifiedPhoneNumber(fullPhone);
       setSignupStep('otp_verification');
       setResendCountdown(30);
-      Alert.alert('OTP Sent', 'A verification code has been sent to your mobile number.');
+      const otpMsg = response?.data?.otp ? ` (Internal Debug: ${response.data.otp})` : '';
+      Alert.alert('OTP Sent', 'A verification code has been sent to your mobile number.' + otpMsg);
     } catch (error) {
       console.error('❌ Send OTP error:', error);
-      Alert.alert('Error', 'Failed to send OTP. Please try again.');
+      
+      if (error.response?.status === 409) {
+        Alert.alert('Number Already Exists', 'This mobile number is already registered. Please sign in instead.', [
+          { text: 'Sign In', onPress: () => navigation.navigate('Login') },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+      } else {
+        const errorMsg = error.response?.data?.message || 'Failed to send OTP. Please try again.';
+        Alert.alert('Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -146,11 +156,19 @@ const SignupScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // Verify OTP with backend
+      const apiResponse = await authAPI.verifyOtp(phoneNumber, fullOtp);
+      const token = apiResponse?.data?.accessToken || apiResponse?.accessToken;
+      if (token) {
+        if (Platform.OS !== 'web') {
+          await SecureStore.setItemAsync('token', token);
+        } else {
+          localStorage.setItem('token', token);
+        }
+      }
       setSignupStep('create_account');
       Alert.alert('Verified', 'Phone number verified! Please complete your account details.');
     } catch (error) {
-      Alert.alert('Invalid OTP', 'The code is incorrect. Please try again.');
+      Alert.alert('Invalid OTP', error.response?.data?.message || 'The code is incorrect. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -160,13 +178,14 @@ const SignupScreen = ({ navigation }) => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
+      await authAPI.sendOtp(phoneNumber, true);
       setResendCountdown(30);
       setOtpDigits(['', '', '', '', '', '']);
       setOtpAutoFilled(false);
       setOtpDetected(false);
       Alert.alert('OTP Resent', 'A new verification code has been sent to your mobile number.');
     } catch (error) {
-      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to resend OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -174,45 +193,24 @@ const SignupScreen = ({ navigation }) => {
 
   // ===== STEP 3: CREATE ACCOUNT =====
   const handleCreateAccount = async () => {
-    if (!fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert('Error', 'Please fill in all fields.');
-      return;
-    }
-    if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address.');
-      return;
-    }
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+    if (!fullName.trim() || !email.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/complete-signup', {
-        phoneNumber: verifiedPhoneNumber,
-        fullName: fullName.trim(),
+      // The token is already saved during verifyOTP. 
+      const response = await apiClient.post('/account/setup', {
+        name: fullName.trim(),
         email: email.trim().toLowerCase(),
         language,
-        isPhoneVerified: true,
+        city: 'Hyderabad', // Required by schema to be a valid supported city
+        consentAccepted: true
       });
 
-      const { token, user, isNewUser } = response.data;
+      console.log('✅ Account created:', response.data);
 
-      // Store token securely
-      if (Platform.OS !== 'web') {
-        await SecureStore.setItemAsync('token', token);
-      } else {
-        localStorage.setItem('token', token);
-      }
-
-      console.log('✅ Account created:', user);
-
-      // Navigate to next step
       navigation.navigate('ReferralLocation', {
         phoneNumber: verifiedPhoneNumber,
         fullName: fullName.trim(),
@@ -482,58 +480,18 @@ const SignupScreen = ({ navigation }) => {
                 <View style={[styles.inputWrapper, email && styles.inputWrapperFilled]}>
                   <MaterialCommunityIcons name="email-outline" size={20} color="#E53935" />
                   <TextInput
-                    placeholder="you@example.com"
+                    placeholder="Your email address"
                     value={email}
                     onChangeText={setEmail}
-                    keyboardType="email-address"
                     style={styles.input}
                     placeholderTextColor="#CCC"
                     editable={!loading}
                     autoCapitalize="none"
+                    keyboardType="email-address"
                   />
                   {email.includes('@') && (
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
                   )}
-                </View>
-              </View>
-
-              {/* Password */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputWrapper, password && styles.inputWrapperFilled]}>
-                  <MaterialCommunityIcons name="lock-outline" size={20} color="#E53935" />
-                  <TextInput
-                    placeholder="Min 8 characters"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    style={styles.input}
-                    placeholderTextColor="#CCC"
-                    editable={!loading}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <MaterialCommunityIcons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#999" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Confirm Password */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Confirm Password</Text>
-                <View style={[styles.inputWrapper, confirmPassword && styles.inputWrapperFilled]}>
-                  <MaterialCommunityIcons name="lock-check-outline" size={20} color="#E53935" />
-                  <TextInput
-                    placeholder="Re-enter password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    style={styles.input}
-                    placeholderTextColor="#CCC"
-                    editable={!loading}
-                  />
-                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    <MaterialCommunityIcons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color="#999" />
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -572,20 +530,18 @@ const SignupScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.signupButton,
-                  fullName && email.includes('@') && password.length >= 8 && password === confirmPassword
-                    ? styles.buttonSuccess
-                    : {},
+                  fullName && email.includes('@') ? styles.buttonSuccess : {},
                   loading && styles.disabledButton,
                 ]}
                 onPress={handleCreateAccount}
-                disabled={loading || !fullName || !email.includes('@') || password.length < 8 || password !== confirmPassword}
+                disabled={loading || !fullName || !email.includes('@')}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <View style={styles.buttonContent}>
                     <MaterialCommunityIcons name="account-check" size={20} color="#FFF" />
-                    <Text style={styles.buttonText}>Create Account</Text>
+                    <Text style={styles.buttonText}>Submit Details</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -703,6 +659,24 @@ const styles = StyleSheet.create({
   },
   loginText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
   loginLink: { fontSize: 13, color: '#E53935', fontWeight: '700' },
+
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    paddingHorizontal: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E8E8E8',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: '#999999',
+    fontWeight: '600',
+    marginHorizontal: 12,
+  },
 
   bottomSpace: { height: 10 },
 

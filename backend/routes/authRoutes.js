@@ -35,9 +35,16 @@ router.post('/login', login);
 router.post('/complete-signup', completeSignup);
 
 /**
+ * POST /api/auth/send-otp
+ * Send OTP to phone number
+ * Body: { mobile }
+ */
+router.post('/send-otp', require('../controllers/authController').sendOTP);
+
+/**
  * POST /api/auth/verify-otp
  * Verify OTP for phone number
- * Body: { phoneNumber, otp }
+ * Body: { mobile, otp }
  */
 router.post('/verify-otp', verifyOTP);
 

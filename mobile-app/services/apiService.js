@@ -69,6 +69,36 @@ export const authAPI = {
     }
   },
 
+  sendOtp: async (mobile, isSignup = false) => {
+    // Force 10 digits to match backend expectation
+    const cleanMobile = mobile.replace(/[^\d]/g, '').slice(-10);
+    try {
+      const response = await apiClient.post('/auth/send-otp', {
+        mobile: cleanMobile,
+        isSignup,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Send OTP error:', error.message);
+      throw error;
+    }
+  },
+
+  verifyOtp: async (mobile, otp) => {
+    // Force 10 digits to match backend expectation
+    const cleanMobile = mobile.replace(/[^\d]/g, '').slice(-10);
+    try {
+      const response = await apiClient.post('/auth/verify-otp', {
+        mobile: cleanMobile,
+        otp,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Verify OTP error:', error.message);
+      throw error;
+    }
+  },
+
   logout: async () => {
     try {
       if (Platform.OS === 'web') {
@@ -99,7 +129,7 @@ export const userAPI = {
   getProfile: async () => {
     try {
       console.log('👤 Fetching user profile...');
-      const response = await apiClient.get('/user/profile');
+      const response = await apiClient.get('/account/profile');
       console.log('✅ Profile fetched successfully');
       return response.data;
     } catch (error) {
@@ -112,7 +142,7 @@ export const userAPI = {
   updateProfile: async (profileData) => {
     try {
       console.log('📝 Updating user profile...');
-      const response = await apiClient.put('/user/update-profile', profileData);
+      const response = await apiClient.patch('/account/profile', profileData);
       console.log('✅ Profile updated successfully');
       return response.data;
     } catch (error) {
@@ -125,7 +155,7 @@ export const userAPI = {
   addFamilyMember: async (memberData) => {
     try {
       console.log('👥 Adding family member...');
-      const response = await apiClient.post('/family', memberData);
+      const response = await apiClient.post('/account/family', memberData);
       console.log('✅ Family member added successfully');
       return response.data;
     } catch (error) {
@@ -138,7 +168,7 @@ export const userAPI = {
   getFamilyMembers: async () => {
     try {
       console.log('👨‍👩‍👧‍👦 Fetching family members...');
-      const response = await apiClient.get('/family');
+      const response = await apiClient.get('/account/family');
       console.log('✅ Family members fetched successfully');
       return response.data;
     } catch (error) {
@@ -151,7 +181,7 @@ export const userAPI = {
   deleteFamilyMember: async (id) => {
     try {
       console.log(`🗑️ Deleting family member ${id}...`);
-      const response = await apiClient.delete(`/family/${id}`);
+      const response = await apiClient.delete(`/account/family/${id}`);
       console.log('✅ Family member deleted successfully');
       return response.data;
     } catch (error) {
@@ -200,7 +230,7 @@ export const subscriptionAPI = {
   subscribe: async (subscriptionData) => {
     try {
       console.log('📋 Creating subscription...');
-      const response = await apiClient.post('/subscription/subscribe', subscriptionData);
+      const response = await apiClient.post('/subscriptions', subscriptionData);
       console.log('✅ Subscription created successfully');
       return response.data;
     } catch (error) {
@@ -213,7 +243,7 @@ export const subscriptionAPI = {
   getSubscriptions: async () => {
     try {
       console.log('📋 Fetching subscriptions...');
-      const response = await apiClient.get('/subscription/my-subscriptions');
+      const response = await apiClient.get('/subscriptions/active');
       console.log('✅ Subscriptions fetched successfully');
       return response.data;
     } catch (error) {
@@ -226,7 +256,7 @@ export const subscriptionAPI = {
   cancelSubscription: async (subscriptionId) => {
     try {
       console.log('❌ Canceling subscription...');
-      const response = await apiClient.delete(`/subscription/${subscriptionId}`);
+      const response = await apiClient.post('/subscriptions/cancel');
       console.log('✅ Subscription canceled successfully');
       return response.data;
     } catch (error) {
@@ -257,7 +287,7 @@ export const paymentAPI = {
   verifyPayment: async (paymentData) => {
     try {
       console.log('✅ Verifying payment...');
-      const response = await apiClient.post('/payment/verify', paymentData);
+      const response = await apiClient.post('/payments/confirm', paymentData);
       console.log('✅ Payment verified successfully');
       return response.data;
     } catch (error) {
@@ -270,7 +300,7 @@ export const paymentAPI = {
   getPaymentHistory: async () => {
     try {
       console.log('💰 Fetching payment history...');
-      const response = await apiClient.get('/payment/history');
+      const response = await apiClient.get('/payments/history');
       console.log('✅ Payment history fetched successfully');
       return response.data;
     } catch (error) {

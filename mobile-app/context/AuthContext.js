@@ -1,10 +1,20 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiBaseUrl';
 
+
 export const AuthContext = createContext();
+
+// Custom hook to use AuthContext
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -15,10 +25,11 @@ export const AuthProvider = ({ children }) => {
 
     const saveSecureItem = async (key, value) => {
         try {
+            if (value === null || value === undefined) return;
             if (Platform.OS === 'web') {
-                localStorage.setItem(key, value);
+                localStorage.setItem(key, String(value));
             } else {
-                await SecureStore.setItemAsync(key, value);
+                await SecureStore.setItemAsync(key, String(value));
             }
         } catch (error) {
             console.error('Error saving exact item: ', error);
@@ -56,15 +67,31 @@ export const AuthProvider = ({ children }) => {
             try {
                 const storedToken = await getSecureItem('token');
                 if (storedToken) {
-                    const response = await axios.get(`${API_URL}/user/profile`, {
-                        headers: { Authorization: `Bearer ${storedToken}` }
-                    });
-                    setToken(storedToken);
-                    setUser(response.data.user);
+                    // Skip backend verification for mock tokens (development)
+                    if (storedToken.startsWith('mock_')) {
+                        console.log('🔧 Mock token detected, skipping profile fetch');
+                        setToken(storedToken);
+                        setUser({
+                            _id: 'mock_user_id',
+                            phoneNumber: '+91XXXXXXXXXX',
+                            name: 'Demo User',
+                            isProfileComplete: true,
+                            memberType: 'standard',
+                        });
+                    } else {
+                        const response = await axios.get(`${API_URL}/account/profile`, {
+                            headers: { Authorization: `Bearer ${storedToken}` }
+                        });
+                        setToken(storedToken);
+                        setUser(response.data.data || response.data.user);
+                    }
                 }
             } catch (error) {
-                console.error('Failed to load user', error);
-                await removeSecureItem('token');
+                console.error('Failed to load user:', error.message);
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    console.log('Token is invalid or expired, clearing it.');
+                    await removeSecureItem('token');
+                }
             } finally {
                 setLoading(false);
             }

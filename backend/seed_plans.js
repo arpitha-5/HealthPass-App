@@ -1,56 +1,54 @@
 const mongoose = require('mongoose');
-const Plan = require('./models/Plan');
 require('dotenv').config();
+const Plan = require('./models/Plan');
 
-const plans = [
-    {
-        name: 'Basic',
-        memberCoverage: 1,
-        freeDoctorVisits: 2,
-        diagnosticsCoverage: 10,
-        accidentalCover: 50000,
-        walletCreditPercentage: 5,
-        price: { monthly: 99, quarterly: 249, annual: 999 },
-        features: ['2 Free Consultations/month', '1 Lab Test/month', 'Health Records Storage', 'Emergency Helpline']
-    },
-    {
-        name: 'Gold',
-        memberCoverage: 4,
-        freeDoctorVisits: 10,
-        diagnosticsCoverage: 25,
-        accidentalCover: 200000,
-        walletCreditPercentage: 10,
-        price: { monthly: 299, quarterly: 799, annual: 2999 },
-        features: ['10 Free Consultations/month', '5 Lab Tests/month', 'Hospital Cashless (₹25,000)', '2 Ambulance Rides/year', 'Health Records Storage', 'Family Coverage (up to 4)']
-    },
-    {
-        name: 'Platinum',
-        memberCoverage: 6,
-        freeDoctorVisits: 999, // unlimited
-        diagnosticsCoverage: 50,
-        accidentalCover: 500000,
-        walletCreditPercentage: 15,
-        price: { monthly: 599, quarterly: 1499, annual: 5999 },
-        features: ['Unlimited Consultations', 'Unlimited Lab Tests', 'Hospital Cashless (₹1,00,000)', 'Unlimited Ambulance Rides', 'International OPD Coverage', 'Entire Family Coverage', 'Dedicated Health Manager']
-    }
-];
-
-async function seed() {
+const seedPlans = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/healthpass');
-        console.log('Connected to DB');
+        await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/healthpass');
+        console.log('MongoDB connected');
 
-        await Plan.deleteMany({});
-        console.log('Cleared existing plans');
+        await Plan.deleteMany({}); // Clear existing
 
-        const createdPlans = await Plan.insertMany(plans);
-        console.log('Seeded plans:', createdPlans.map(p => p.name));
+        const plans = [
+            {
+                name: 'Basic',
+                memberCoverage: 1,
+                freeDoctorVisits: 2,
+                diagnosticsCoverage: 10,
+                accidentalCover: 50000,
+                walletCreditPercentage: 5,
+                price: { monthly: 499, quarterly: 1299, annual: 4999 },
+                features: ['2 Free Doctor Visits', '10% off Diagnostics', '50K Accidental Cover']
+            },
+            {
+                name: 'Gold',
+                memberCoverage: 2,
+                freeDoctorVisits: 5,
+                diagnosticsCoverage: 20,
+                accidentalCover: 100000,
+                walletCreditPercentage: 10,
+                price: { monthly: 999, quarterly: 2799, annual: 9999 },
+                features: ['5 Free Doctor Visits', '20% off Diagnostics', '1L Accidental Cover', 'Priority Support']
+            },
+            {
+                name: 'Platinum',
+                memberCoverage: 4,
+                freeDoctorVisits: 12,
+                diagnosticsCoverage: 30,
+                accidentalCover: 300000,
+                walletCreditPercentage: 15,
+                price: { monthly: 1999, quarterly: 5499, annual: 19999 },
+                features: ['Unlimited Doctor Visits', '30% off Diagnostics', '3L Accidental Cover', '24/7 Concierge']
+            }
+        ];
 
+        await Plan.insertMany(plans);
+        console.log('Plans seeded successfully!');
         process.exit(0);
     } catch (err) {
-        console.error('Seeding error:', err);
+        console.error(err);
         process.exit(1);
     }
-}
+};
 
-seed();
+seedPlans();

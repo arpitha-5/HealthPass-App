@@ -103,3 +103,12 @@ exports.verifyPayment = async (req, res) => {
         res.status(500).json({ success: false, message: 'Error verifying payment', error: error.message });
     }
 };
+
+exports.getPaymentHistory = async (req, res) => {
+    try {
+        const payments = await Payment.find({ user: req.user._id }).sort({ createdAt: -1 }).populate('subscription');
+        res.status(200).json({ success: true, payments });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching payment history', error: error.message });
+    }
+};

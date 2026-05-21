@@ -32,7 +32,7 @@ const CITIES = [
 const PROFILE_STORAGE_KEY = '@healthpass_profile';
 
 const EditProfileScreen = ({ navigation, route }) => {
-  const { user, login } = useContext(AuthContext);
+  const { user, token, login } = useContext(AuthContext);
   const existing = route?.params?.userData || user || {};
 
   const [name,             setName]             = useState(existing.fullName || existing.name || '');
@@ -124,7 +124,7 @@ const EditProfileScreen = ({ navigation, route }) => {
         
         // 3️⃣ Update AuthContext so changes reflect everywhere immediately
         if (res.success && res.user) {
-          await login(res.user, await AsyncStorage.getItem('token'));
+          await login(res.user, token);
         }
       } catch (apiErr) {
         console.warn('Backend profile sync skipped:', apiErr?.message);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../theme/index';
+import { Feather } from '@expo/vector-icons';
 
 /**
  * InputField
@@ -27,6 +28,14 @@ const InputField = ({
   const hasError = !!error;
   const isFilled = value && value.length > 0;
 
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (typeof icon === 'string') {
+      return <Feather name={icon} size={20} color={Colors.textTertiary} />;
+    }
+    return icon;
+  };
+
   return (
     <View style={[styles.wrapper, style]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -36,7 +45,7 @@ const InputField = ({
         hasError && styles.containerError,
         !editable && styles.containerDisabled,
       ]}>
-        {icon && <View style={styles.leftIcon}>{icon}</View>}
+        {icon && <View style={styles.leftIcon}>{renderIcon()}</View>}
         <TextInput
           style={[styles.input, icon && styles.inputWithIcon]}
           value={value}

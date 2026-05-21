@@ -42,12 +42,13 @@ const AddFamilyMemberScreen = ({ route, navigation }) => {
       });
 
       if (res.success) {
-        Alert.alert('Success', `${name} added successfully!`, [
-          { text: 'OK', onPress: () => {
-            if (route.params?.onComplete) route.params.onComplete();
-            navigation.goBack();
-          }}
-        ]);
+        const newMember = { id: Date.now(), name, age, gender, relation };
+        setFamilyMembers([...familyMembers, newMember]);
+        setName('');
+        setAge('');
+        setGender('');
+        setRelation('');
+        Alert.alert('Success', `${name} added successfully!`);
       }
     } catch (err) {
       Alert.alert('Error', 'Failed to add family member. Please try again.');

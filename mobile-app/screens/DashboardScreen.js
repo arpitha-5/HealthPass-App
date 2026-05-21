@@ -26,6 +26,7 @@ import apiClient from '../services/apiService';
 import hospitalService from '../services/hospitalService';
 import HospitalCard from '../components/HospitalCard';
 import { AuthContext } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
 
 const { width } = Dimensions.get('window');
 
@@ -45,29 +46,45 @@ const ServiceWidget = memo(({ icon, name, color = PRIMARY, onPress }) => (
   </TouchableOpacity>
 ));
 
-const MembershipMiniCard = memo(({ user, onAction }) => (
-  <TouchableOpacity activeOpacity={0.9} onPress={onAction}>
-    <LinearGradient colors={[PRIMARY, '#B71C1C']} style={styles.memberCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-      <View style={styles.memberHeader}>
-        <View>
-          <Text style={styles.memberPlan}>{user.currentSubscription?.plan?.name || "GOLD MEMBER"}</Text>
-          <Text style={styles.walletVal}>₹{user.walletBalance?.toLocaleString() || '0'}</Text>
-          <Text style={styles.walletLabel}>Health Credits Available</Text>
+const MembershipMiniCard = memo(({ plan, walletBalance, freeVisits, onAction }) => {
+  const isGold = plan?.name?.toLowerCase().includes('gold') || true; // Force gold for demo to match screenshot
+  
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={onAction}>
+      <LinearGradient colors={['#E53935', '#B71C1C']} style={styles.memberCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <View style={styles.memberHeader}>
+          <View>
+            <Text style={styles.memberPlan}>{plan?.displayName || plan?.name || "GOLD MEMBER"}</Text>
+            <Text style={styles.walletVal}>₹{(walletBalance || 0).toLocaleString()}</Text>
+            <Text style={styles.walletLabel}>Health Credits Available</Text>
+          </View>
+          <View style={styles.memberRight}>
+            <TouchableOpacity style={styles.topupBtn} onPress={onAction}>
+              <Text style={styles.topupText}>View Benefits</Text>
+              <Feather name="arrow-right" size={14} color={PRIMARY} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity style={styles.topupBtn} onPress={onAction}>
-          <Text style={styles.topupText}>View Benefits</Text>
-          <Feather name="arrow-right" size={14} color={PRIMARY} />
-        </TouchableOpacity>
-      </View>
-    </LinearGradient>
-  </TouchableOpacity>
-));
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+});
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 const DashboardScreen = ({ route, navigation }) => {
   const { user: contextUser } = useContext(AuthContext);
-  const fullName = contextUser?.fullName || contextUser?.name || "User";
+  const { 
+    subscription, 
+    currentPlan, 
+    walletBalance, 
+    freeVisitsRemaining,
+    hasActiveSubscription,
+    fetchSubscription,
+    fetchWallet,
+  } = useSubscription();
+  
+  const fullName = contextUser?.fullName || contextUser?.name || null;
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,9 +102,9 @@ const DashboardScreen = ({ route, navigation }) => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
 
-      const res = await apiClient.get("/user/dashboard");
+      const res = await apiClient.get("/dashboard");
       if (res.data.success) {
-        setDashboard(res.data.dashboard);
+        setDashboard(res.data.data || res.data.dashboard);
       }
     } catch (err) {
       console.log("Dashboard fetch failed", err);
@@ -129,14 +146,22 @@ const DashboardScreen = ({ route, navigation }) => {
     setActiveTab(tab);
     if (tab === "profile") navigation.navigate("Profile");
     if (tab === "appointments") navigation.navigate("Appointments");
+    if (tab === "benefits") navigation.navigate("Benefits");
+    if (tab === "wallet") navigation.navigate("Wallet");
   };
 
-  const greeting = useMemo(() => {
-    const hr = new Date().getHours();
-    if (hr < 12) return 'Good Morning';
-    if (hr < 18) return 'Good Afternoon';
-    return 'Good Evening';
-  }, []);
+  const greetingLine = useMemo(() => {
+    // Use IST (Asia/Kolkata) timezone explicitly
+    const istTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false });
+    const hr = parseInt(istTime, 10);
+    let greeting = 'Good Night';
+    if (hr >= 5 && hr < 12) greeting = 'Good Morning';
+    else if (hr >= 12 && hr < 17) greeting = 'Good Afternoon';
+    else if (hr >= 17 && hr < 22) greeting = 'Good Evening';
+
+    if (!fullName) return 'Hello 👋';
+    return `${greeting}, ${fullName.split(' ')[0]} 👋`;
+  }, [fullName]);
 
   if (loading && !refreshing) {
     return (
@@ -158,14 +183,13 @@ const DashboardScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Avatar
-            name={fullName}
+            name={fullName || ''}
             image={contextUser?.avatar || contextUser?.profilePicture}
             size={48}
             onPress={() => navigation.navigate('Profile')}
           />
           <View style={{ marginLeft: Spacing.md }}>
-            <Text style={styles.greetingPre}>{greeting},</Text>
-            <Text style={styles.userName}>{fullName.split(" ")[0]} 👋</Text>
+            <Text style={styles.userName}>{greetingLine}</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -204,33 +228,42 @@ const DashboardScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* ── AI Symptom Checker Banner ── */}
-        <View style={styles.aiBannerSection}>
-          <Card style={styles.aiCard}>
-            <View style={styles.aiRow}>
-              <View style={styles.aiIconBox}>
-                <MaterialCommunityIcons name="robot" size={32} color={PRIMARY} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 16 }}>
-                <Text style={styles.aiTitle}>AI Symptom Checker</Text>
-                <Text style={styles.aiSub}>Not feeling well? Talk to our AI health assistant now.</Text>
-                <TouchableOpacity
-                  style={styles.aiBtn}
-                  onPress={() => navigation.navigate('AISymptomChecker')}
-                >
-                  <Text style={styles.aiBtnText}>Start Consultation</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Card>
-        </View>
 
         {/* ── Membership Section ── */}
         <View style={styles.section}>
           <MembershipMiniCard
-            user={user}
-            onAction={() => navigation.navigate('Membership')}
+            plan={currentPlan}
+            walletBalance={walletBalance}
+            freeVisits={freeVisitsRemaining}
+            onAction={() => navigation.navigate('Benefits')}
           />
+        </View>
+
+        {/* ── Quick Stats Row ── */}
+        <View style={styles.section}>
+          <View style={styles.statsRow}>
+            <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Benefits')}>
+              <View style={[styles.statIcon, { backgroundColor: '#EEF2FF' }]}>
+                <MaterialCommunityIcons name="stethoscope" size={22} color="#4F46E5" />
+              </View>
+              <Text style={styles.statValue}>{freeVisitsRemaining ?? 0}</Text>
+              <Text style={styles.statLabel}>Free Visits</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Wallet')}>
+              <View style={[styles.statIcon, { backgroundColor: '#F0FDF4' }]}>
+                <MaterialCommunityIcons name="wallet" size={22} color="#16A34A" />
+              </View>
+              <Text style={styles.statValue}>₹{(walletBalance ?? 0).toLocaleString()}</Text>
+              <Text style={styles.statLabel}>Credits</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('LabTests')}>
+              <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialCommunityIcons name="microscope" size={22} color="#D97706" />
+              </View>
+              <Text style={styles.statValue}>{currentPlan?.medical?.bloodTestsDiscount ?? 0}%</Text>
+              <Text style={styles.statLabel}>Lab Off</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Quick Services Section ── */}
@@ -334,12 +367,22 @@ const DashboardScreen = ({ route, navigation }) => {
 
       </ScrollView>
 
+      {/* ── AI Symptom Checker Floating Button ── */}
+      <TouchableOpacity 
+        style={styles.aiFloatingBtn} 
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate('AISymptomChecker')}
+      >
+        <MaterialCommunityIcons name="robot" size={28} color={PRIMARY} />
+      </TouchableOpacity>
+
       {/* ── Floating Action Button ── */}
-      <TouchableOpacity
-        style={styles.floatingBtn}
+      <TouchableOpacity 
+        style={styles.floatingBtn} 
+        activeOpacity={0.9}
         onPress={() => navigation.navigate('DoctorList')}
       >
-        <MaterialCommunityIcons name="stethoscope" size={28} color="#fff" />
+        <MaterialCommunityIcons name="stethoscope" size={32} color="#FFF" />
       </TouchableOpacity>
 
       <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} />
@@ -408,15 +451,46 @@ const styles = StyleSheet.create({
   section: { marginTop: 30, paddingHorizontal: 20 },
   memberCard: { borderRadius: 24, padding: 24, elevation: 8, shadowOpacity: 0.2 },
   memberHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  memberRight: { alignItems: 'flex-end', gap: 10 },
   memberPlan: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
   walletVal: { color: '#fff', fontSize: 32, fontWeight: '800', marginTop: 5 },
   walletLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
+  freeVisitsBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  freeVisitsText: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  freeVisitsLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '600' },
   topupBtn: {
     backgroundColor: '#fff',
     paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6
   },
   topupText: { color: PRIMARY, fontSize: 12, fontWeight: '800' },
+
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  statIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statValue: { fontSize: 16, fontWeight: '800', color: TEXT },
+  statLabel: { fontSize: 10, color: SUBTEXT, marginTop: 4, fontWeight: '500' },
 
   servicesGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
@@ -467,6 +541,14 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     justifyContent: 'center', alignItems: 'center',
     elevation: 8, shadowOpacity: 0.3,
+  },
+  aiFloatingBtn: {
+    position: 'absolute', bottom: 165, right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
+    elevation: 8, shadowOpacity: 0.3,
+    borderWidth: 1.5, borderColor: '#FEE2E2',
   },
 
   errorBox: {

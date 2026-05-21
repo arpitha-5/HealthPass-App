@@ -52,20 +52,14 @@ export default function WelcomeScreen({ navigation }) {
           style={styles.primaryButton}
           onPress={() => navigation.navigate("Login")}
         >
-          <Text style={styles.primaryText}>Get Started</Text>
+          <Text style={styles.primaryText}>Sign In</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.navigate("Plans")}
+          onPress={() => navigation.navigate("Signup")}
         >
-          <Text style={styles.secondaryText}>Explore Plans</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-          <Text style={styles.loginText}>
-            Already a member? <Text style={styles.signin}>Sign In</Text>
-          </Text>
+          <Text style={styles.secondaryText}>Register</Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>

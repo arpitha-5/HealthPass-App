@@ -3,9 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import AppNavigator from './navigation/AppNavigator';
 
-// Suppress non-critical warnings
 if (typeof global !== 'undefined' && global.LogBox) {
   try {
     global.LogBox.ignoreLogs([
@@ -28,8 +28,10 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
-          <StatusBar style="dark" />
-          <AppNavigator />
+          <SubscriptionProvider>
+            <StatusBar style="dark" />
+            <AppNavigator />
+          </SubscriptionProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

@@ -58,7 +58,7 @@ const OtpScreen = ({ route, navigation }) => {
     }
 
     if (index === 5 && numericValue) {
-      handleVerifyOTP();
+      handleVerifyOTP(newOtp);
     }
   };
 
@@ -68,8 +68,10 @@ const OtpScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleVerifyOTP = async () => {
-    const otpCode = otp.join('');
+  const handleVerifyOTP = async (currentOtp = null) => {
+    // If currentOtp is a React event (from onPress), it won't be an array.
+    const otpToVerify = (currentOtp && Array.isArray(currentOtp)) ? currentOtp : otp;
+    const otpCode = otpToVerify.join('');
     if (otpCode.length !== 6) {
       Alert.alert('Incomplete OTP', 'Please enter all 6 digits');
       return;
@@ -77,39 +79,32 @@ const OtpScreen = ({ route, navigation }) => {
 
     setLoading(true);
     try {
-      const session = getPhoneAuthSession();
+      const cleanPhone = phoneNumber.replace(/[^\d]/g, '').slice(-10);
+      
+      const apiResponse = await authAPI.verifyOtp(cleanPhone, otpCode);
+      const data = apiResponse?.data || apiResponse;
 
-      if (!session?.phoneNumber) {
-        throw new Error('OTP session expired. Please request a new code.');
-      }
+      const userData = {
+        _id: data.userId || data.user?.id || data.user?._id,
+        phoneNumber: phoneNumber,
+        isProfileComplete: data.isProfileComplete !== undefined ? data.isProfileComplete : (data.user?.isProfileComplete !== undefined ? data.user.isProfileComplete : false),
+        role: data.role || data.user?.role,
+      };
 
-      // Skip Firebase client confirmation - Directly verify with backend
-      // This removes the need for client-side reCAPTCHA entirely.
-      console.log('📱 Verifying with backend for phone:', phoneNumber);
+      await login(userData, data.accessToken || data.token);
 
-      const response = await authAPI.loginWithPhone({
-        phoneNumber,
-        name: session.name || suppliedName,
-      });
-
-      await login(response.user, response.token);
-      clearPhoneAuthSession();
-
-      // Navigate based on flow mode
-      const nextScreen = flowMode === 'signup' 
-        ? (response.user?.isProfileComplete ? 'Dashboard' : 'AccountSetup')
-        : 'Dashboard'; // For login, always go to Dashboard
+      const nextScreen = userData.isProfileComplete ? 'Dashboard' : 'AccountSetup';
       
       navigation.reset({
         index: 0,
         routes: [{
           name: nextScreen,
-          params: nextScreen === 'AccountSetup' ? { phoneNumber, userData: response.user } : undefined,
+          params: nextScreen === 'AccountSetup' ? { phoneNumber, userData } : undefined,
         }],
       });
     } catch (error) {
       console.error('❌ OTP verification failed:', error);
-      const errorMessage = error.message || 'The OTP is invalid or expired. Please try again.';
+      const errorMessage = error.response?.data?.message || 'The OTP is invalid or expired. Please try again.';
       Alert.alert('Verification Failed', errorMessage);
     } finally {
       setLoading(false);
@@ -199,7 +194,7 @@ const OtpScreen = ({ route, navigation }) => {
           {/* Verify Button */}
           <TouchableOpacity
             style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
-            onPress={handleVerifyOTP}
+            onPress={() => handleVerifyOTP()}
             disabled={loading}
           >
             {loading ? (

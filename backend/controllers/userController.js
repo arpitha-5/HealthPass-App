@@ -71,6 +71,11 @@ exports.getProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        if (!user.isProfileComplete) {
+            user.isProfileComplete = true;
+            await user.save();
+        }
+
         res.status(200).json({ success: true, user });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching profile', error: error.message });
@@ -89,7 +94,9 @@ exports.updateProfile = async (req, res) => {
         emergencyContact, 
         city, 
         profilePicture, 
-        avatar 
+        avatar,
+        language,
+        consentAccepted
     } = req.body;
 
     try {
@@ -114,6 +121,8 @@ exports.updateProfile = async (req, res) => {
         if (city) user.city = city;
         if (profilePicture) user.profilePicture = profilePicture;
         if (avatar) user.avatar = avatar;
+        if (language) user.language = language;
+        if (consentAccepted !== undefined) user.consentAccepted = consentAccepted;
 
         user.isProfileComplete = true;
 
@@ -155,6 +164,25 @@ exports.getFamilyMembers = async (req, res) => {
         res.status(200).json({ success: true, familyMembers });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching family members', error: error.message });
+    }
+};
+
+exports.deleteFamilyMember = async (req, res) => {
+    try {
+        const familyMember = await FamilyMember.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+        if (!familyMember) {
+            return res.status(404).json({ success: false, message: 'Family member not found' });
+        }
+        
+        const user = await User.findById(req.user._id);
+        if (user) {
+            user.familyMembers = user.familyMembers.filter(id => id.toString() !== req.params.id);
+            await user.save();
+        }
+        
+        res.status(200).json({ success: true, message: 'Family member deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error deleting family member', error: error.message });
     }
 };
 

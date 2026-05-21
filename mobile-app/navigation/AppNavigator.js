@@ -42,6 +42,17 @@ import MembershipScreen from '../screens/MembershipScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import FamilyManagementScreen from '../screens/FamilyManagementScreen';
 
+// New Feature Screens (UC01-UC21)
+import WalletScreen from '../screens/WalletScreen';
+import BenefitsScreen from '../screens/BenefitsScreen';
+import InsuranceScreen from '../screens/InsuranceScreen';
+import DiagnosticsScreen from '../screens/DiagnosticsScreen';
+import SupportScreen from '../screens/SupportScreen';
+import ReferralsScreen from '../screens/ReferralsScreen';
+import BillsScreen from '../screens/BillsScreen';
+import ChatScreen from '../screens/ChatScreen';
+import AccountSuspensionScreen from '../screens/AccountSuspensionScreen';
+
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
@@ -99,6 +110,17 @@ const AppNavigator = () => {
         <Stack.Screen name="AISymptomChecker" component={AISymptomCheckerScreen} />
         <Stack.Screen name="Membership" component={MembershipScreen} />
         <Stack.Screen name="FamilyManagement" component={FamilyManagementScreen} />
+        
+        {/* New Feature Routes (UC01-UC21) */}
+        <Stack.Screen name="Wallet" component={WalletScreen} />
+        <Stack.Screen name="Benefits" component={BenefitsScreen} />
+        <Stack.Screen name="Insurance" component={InsuranceScreen} />
+        <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
+        <Stack.Screen name="Support" component={SupportScreen} />
+        <Stack.Screen name="Referrals" component={ReferralsScreen} />
+        <Stack.Screen name="Bills" component={BillsScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="AccountSuspension" component={AccountSuspensionScreen} />
         
       </Stack.Navigator>
     </NavigationContainer>
